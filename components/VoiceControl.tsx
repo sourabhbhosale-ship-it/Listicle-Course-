@@ -1,7 +1,7 @@
 
 import React, { useState, useRef, useCallback, useEffect } from 'react';
 import { GoogleGenAI, FunctionDeclaration, LiveSession, LiveServerMessage, Modality, Type, Blob } from '@google/genai';
-import { MicrophoneIcon, SearchIcon } from './Icons';
+import { MicrophoneIcon, SearchIcon, ExclamationTriangleIcon } from './Icons';
 import { CourseSection } from '../types';
 import { QuizQuestion } from '../quizQuestions';
 
@@ -103,12 +103,34 @@ interface VoiceControlProps {
   onSectionSelect: (id: string) => void;
 }
 
-type VoiceState = 'initializing' | 'permission_needed' | 'standby' | 'listening' | 'error' | 'unsupported' | 'disabled';
+type VoiceState = 'initializing' | 'permission_needed' | 'standby' | 'listening' | 'error' | 'unsupported' | 'disabled' | 'missing_key';
 
 interface WebSource {
   title: string;
   uri: string;
 }
+
+// FALLBACK KEY - Used if environment variable is missing.
+// SECURITY NOTE: In a production app, restrict this key's usage to your domain (sourabhbhosale-ship-it.github.io) in Google AI Studio.
+const FALLBACK_KEY = "AIzaSyAQvxsPJNuMXLEVSDUwNMdYl7tz_0PuxqU";
+
+// Helper to safely get API key without crashing in browser env
+const getApiKey = () => {
+    try {
+        if (typeof process !== 'undefined' && process.env && process.env.API_KEY) {
+            return process.env.API_KEY;
+        }
+        // Fallback for Vite environments
+        if (typeof import.meta !== 'undefined' && (import.meta as any).env && (import.meta as any).env.VITE_API_KEY) {
+            return (import.meta as any).env.VITE_API_KEY;
+        }
+    } catch (e) {
+        console.warn("Could not retrieve API key from environment, checking fallback...");
+    }
+    
+    // Return hardcoded fallback if env vars failed
+    return FALLBACK_KEY;
+};
 
 export const VoiceControl: React.FC<VoiceControlProps> = (props) => {
   const [voiceState, setVoiceState] = useState<VoiceState>('initializing');
@@ -192,6 +214,13 @@ export const VoiceControl: React.FC<VoiceControlProps> = (props) => {
   const startConversation = useCallback(async () => {
     if (!isMountedRef.current || voiceState === 'listening') return;
     
+    const apiKey = getApiKey();
+    if (!apiKey) {
+        setVoiceState('missing_key');
+        setStatusMessage('API Key missing');
+        return;
+    }
+
     await stopWakeWordListener();
     if (!isMountedRef.current) return;
 
@@ -235,7 +264,7 @@ export const VoiceControl: React.FC<VoiceControlProps> = (props) => {
       
     try {
       const { sections, quizQuestions } = propsRef.current;
-      const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+      const ai = new GoogleGenAI({ apiKey: apiKey });
 
       const sectionTitles = sections.map(s => `"${s.title}"`).join(', ');
       const sectionSummaries = sections.map(s => `- ${s.title}: Teaches about ${s.title.toLowerCase()}.`).join('\n');
@@ -309,10 +338,6 @@ You also have access to Google Search. If the user asks for current news, recent
             
             if (message.serverContent?.turnComplete) {
                 currentTranscriptRef.current = '';
-                // Clear sources after a delay or keep them until next turn? 
-                // Keeping them until next turn is better for readability.
-                // We will clear them at the start of user input or new response via onmessage logic if needed, 
-                // but for now, let's clear transcript and keep sources visible until closed or new sources arrive.
                 setTimeout(() => setTranscript(''), 3000);
             }
 
@@ -487,7 +512,12 @@ You also have access to Google Search. If the user asks for current news, recent
   useEffect(() => {
     isMountedRef.current = true;
     
-    if (!SpeechRecognitionAPI) {
+    // Initial check for API Key
+    const apiKey = getApiKey();
+    if (!apiKey) {
+        setVoiceState('missing_key');
+        setStatusMessage('Setup API Key');
+    } else if (!SpeechRecognitionAPI) {
         setVoiceState('unsupported');
         setStatusMessage('Voice not supported.');
     } else {
@@ -511,12 +541,18 @@ You also have access to Google Search. If the user asks for current news, recent
         case 'listening': return 'bg-cyan-500 text-white animate-pulse-voice ring-4 ring-cyan-500/30';
         case 'error':
         case 'permission_needed': return 'bg-red-500 text-white';
+        case 'missing_key': return 'bg-red-600 text-white animate-pulse';
         case 'disabled': return 'bg-slate-700 text-slate-300 hover:bg-slate-600';
         default: return 'bg-slate-700 text-slate-300';
     }
   }
 
   const handleButtonClick = async () => {
+    if (voiceState === 'missing_key') {
+        alert("API Key is missing.");
+        return;
+    }
+    
     // Unlock audio context on first user interaction.
     if (!outputAudioContextRef.current || outputAudioContextRef.current.state === 'closed') {
         outputAudioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)({ sampleRate: 24000 });
@@ -574,7 +610,7 @@ You also have access to Google Search. If the user asks for current news, recent
                 disabled={voiceState === 'initializing' || voiceState === 'unsupported'}
                 className={`w-14 h-14 rounded-full flex items-center justify-center transition-all duration-300 transform hover:scale-110 focus:outline-none focus:ring-4 focus:ring-offset-2 focus:ring-offset-slate-900 focus:ring-cyan-500 shadow-2xl disabled:opacity-50 disabled:cursor-not-allowed ${getButtonClass()}`}
             >
-                <MicrophoneIcon className="w-6 h-6" />
+                {voiceState === 'missing_key' ? <ExclamationTriangleIcon className="w-6 h-6" /> : <MicrophoneIcon className="w-6 h-6" />}
             </button>
         </div>
     </div>

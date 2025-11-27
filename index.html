@@ -8,18 +8,33 @@
 <script type="importmap">
 {
   "imports": {
+    "@google/genai": "https://aistudiocdn.com/@google/genai@^1.30.0",
+    "vite": "https://aistudiocdn.com/vite@^7.2.4",
+    "@vitejs/plugin-react": "https://aistudiocdn.com/@vitejs/plugin-react@^5.1.1",
+    "react-dom/": "https://aistudiocdn.com/react-dom@^19.2.0/",
     "react/": "https://aistudiocdn.com/react@^19.2.0/",
     "react": "https://aistudiocdn.com/react@^19.2.0",
-    "react-dom/": "https://aistudiocdn.com/react-dom@^19.2.0/",
-    "@google/genai": "https://aistudiocdn.com/@google/genai@^1.29.0",
-    "jspdf": "https://cdn.jsdelivr.net/npm/jspdf@2.5.1/+esm",
-    "html2canvas": "https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/+esm"
+    "html2canvas": "https://aistudiocdn.com/html2canvas@^1.4.1",
+    "jspdf": "https://aistudiocdn.com/jspdf@^3.0.4"
   }
 }
 </script>
 </head>
 <body class="bg-slate-900 text-slate-300 antialiased">
   <div id="root"></div>
+  <div id="error-root" style="color: red; padding: 20px; text-align: center; display: none;"></div>
+  
   <script type="module" src="/index.tsx"></script>
+  
+  <script>
+    window.addEventListener('error', function(event) {
+        const root = document.getElementById('root');
+        const errorRoot = document.getElementById('error-root');
+        if (root && root.innerHTML.trim() === '') {
+            errorRoot.style.display = 'block';
+            errorRoot.innerHTML = '<h3>Application Failed to Start</h3><p>Check console for details.</p><p>' + event.message + '</p>';
+        }
+    });
+  </script>
 </body>
 </html>
