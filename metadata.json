@@ -1,0 +1,7 @@
+{
+  "name": "Next-Gen Listicle Writing Course",
+  "description": "An interactive and animated course designed to teach junior SEO experts the art and science of writing high-performing listicles, based on the SOPs by Sourabh Bhosale.",
+  "requestFramePermissions": [
+    "microphone"
+  ]
+}
